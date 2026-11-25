@@ -20,7 +20,8 @@ Strategy (long only, no leverage, deterministic):
     return is under -5% (a deep dip worth re-entering).
   * Trade pacing: the guardrails ask for at least 8 filled trades, so
     from batch 40 on, while fewer than 8 trades have filled, place one
-    small trade in the strongest 12-bar symbol.
+    small trade in the strongest 12-bar symbol (trimming half a held
+    position rather than liquidating it, to keep the exposure).
 """
 
 import os
@@ -124,7 +125,9 @@ def on_batch(state, batch):
             best = max(candidates, key=lambda s: (ret_bps(s, 12), s))
             held = state.positions.get(best)
             if held is not None:
-                orders.append(sell(best, held.qty))
+                # Pacing only needs one more fill: trim half the position
+                # instead of liquidating it and losing the exposure.
+                orders.append(sell(best, held.qty // 2 if held.qty > 1 else held.qty))
             elif cash >= PACE_USDC * scale:
                 orders.append(buy(best, PACE_USDC * scale))
 
